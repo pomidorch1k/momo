@@ -22,7 +22,7 @@ jobs:
         uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
-          java-version: '17'
+          java-version: '21'
 
       # важный шаг: убираем package-lock, чтобы Linux сам подтянул свои бинарники
       - name: Remove lockfile
