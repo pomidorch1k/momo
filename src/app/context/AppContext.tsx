@@ -4,6 +4,8 @@ import { projectId, publicAnonKey } from '/utils/supabase/info';
 import { Product, CartItem, User } from '../types';
 import { api } from '../lib/api';
 
+const ADMIN_EMAIL = 'admin@mail.ru';
+
 interface AppContextType {
   products: Product[];
   cart: CartItem[];
@@ -99,9 +101,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         
         if (session?.access_token) {
           setAccessToken(session.access_token);
-          
+
           // Получаем роль пользователя
-          const { role, userId } = await api.getRole(session.access_token);
+          let { role, userId } = await api.getRole(session.access_token);
+
+          // Гарантируем, что специальный аккаунт админа всегда имеет роль admin
+          if (session.user.email === ADMIN_EMAIL && role !== 'admin') {
+            await api.setRole(userId, 'admin');
+            role = 'admin';
+          }
+
           setUser({
             id: userId,
             username: session.user.email || 'User',
@@ -287,7 +296,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       setAccessToken(data.session.access_token);
 
       // Получаем роль пользователя
-      const { role, userId } = await api.getRole(data.session.access_token);
+      let { role, userId } = await api.getRole(data.session.access_token);
+
+      // Специальный аккаунт админа по email
+      if (email === ADMIN_EMAIL && role !== 'admin') {
+        await api.setRole(userId, 'admin');
+        role = 'admin';
+      }
+
       setUser({
         id: userId,
         username: email,
@@ -311,32 +327,23 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const signup = async (email: string, password: string, name: string): Promise<boolean> => {
     try {
-      const { data, error } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          data: { name },
-        },
-      });
+      // Регистрируем пользователя через серверную функцию, чтобы не требовалось подтверждение email
+      const { user } = await api.signup(email, password, name);
 
-      if (error) {
-        console.error('Signup error:', error);
+      if (!user) {
+        console.error('Signup error: user is not returned from API');
         return false;
       }
 
-      if (data.user) {
-        // Устанавливаем роль по умолчанию
-        await api.setRole(data.user.id, 'user');
-        
-        // Логируем ID для установки админа
-        console.log('🎉 Регистрация успешна! ID пользователя:', data.user.id);
-        console.log('Чтобы сделать этого пользователя админом, перейдите на /set-admin');
-        
-        // Автоматически входим после регистрации
-        return await login(email, password);
-      }
+      // Устанавливаем роль: специальный email сразу получает роль админа
+      const role = email === ADMIN_EMAIL ? 'admin' : 'user';
+      await api.setRole(user.id, role);
 
-      return false;
+      // Логируем ID для возможной отладки
+      console.log('🎉 Регистрация успешна! ID пользователя:', user.id);
+
+      // Автоматически входим после регистрации
+      return await login(email, password);
     } catch (error) {
       console.error('Signup error:', error);
       return false;

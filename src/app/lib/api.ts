@@ -19,6 +19,25 @@ export const api = {
     return response.json();
   },
 
+  async signup(email: string, password: string, name: string) {
+    const response = await fetch(`${API_URL}/signup`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${publicAnonKey}`,
+      },
+      body: JSON.stringify({ email, password, name }),
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      console.error('Error signing up:', error);
+      throw new Error(error.error || 'Failed to sign up');
+    }
+
+    return response.json();
+  },
+
   async addProduct(product: any, accessToken: string) {
     const response = await fetch(`${API_URL}/products`, {
       method: 'POST',
