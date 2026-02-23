@@ -24,9 +24,12 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
 
+      # важный шаг: убираем package-lock, чтобы Linux сам подтянул свои бинарники
+      - name: Remove lockfile
+        run: rm -f package-lock.json
+
       - name: Install dependencies
-        run: |
-          npm ci --legacy-peer-deps || npm install --legacy-peer-deps
+        run: npm install --legacy-peer-deps
 
       - name: Build web app
         run: npm run build
